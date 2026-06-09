@@ -80,5 +80,15 @@ def stats():
     for k, v in sorted(stages.items(), key=lambda x: -x[1]):
         print(f"  {k}: {v}")
 
+def export_cold_outreach(output_path="data/cold_outreach_shortlist.csv"):
+    """Export all companies flagged as Cold_Outreach_Candidate = Yes."""
+    rows = load_master()
+    shortlist = [r for r in rows if r.get("Cold_Outreach_Candidate", "").strip() == "Yes"]
+    with open(output_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=FIELDS)
+        writer.writeheader()
+        writer.writerows(shortlist)
+    print(f"Cold outreach shortlist: {len(shortlist)} companies → {output_path}")
+
 if __name__ == "__main__":
     stats()
