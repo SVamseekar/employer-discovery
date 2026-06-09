@@ -1,0 +1,66 @@
+{
+  "name": "05 RemoteOK Board Scraper",
+  "nodes": [
+    {
+      "id": "9d30e514-e120-4028-b256-f91d38440d30",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 300],
+      "parameters": {
+        "rule": {
+          "interval": [{"field": "cronExpression", "expression": "0 5 * * *"}]
+        }
+      }
+    },
+    {
+      "id": "d5f5f07c-a5a0-4b34-8096-900912922cf5",
+      "name": "HTTP Request RemoteOK",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [450, 300],
+      "parameters": {
+        "url": "https://remoteok.com/api?tags=data,machine-learning,backend,python",
+        "method": "GET",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "User-Agent", "value": "employer-discovery-bot/1.0"}
+          ]
+        }
+      }
+    },
+    {
+      "id": "81b9bff2-8fe8-4ce3-8721-25422c075bfd",
+      "name": "Code Map RemoteOK",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 300],
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst companies = [];\nconst seen = new Set();\n\nfor (const item of items) {\n  let jobs = item.json;\n\n  // RemoteOK returns an array; first element is often a legal notice object\n  if (!Array.isArray(jobs)) {\n    if (jobs.data && Array.isArray(jobs.data)) {\n      jobs = jobs.data;\n    } else {\n      continue;\n    }\n  }\n\n  for (const job of jobs) {\n    // Skip non-job entries (e.g. the legal notice)\n    if (!job.company && !job.company_name) continue;\n\n    const companyName = job.company || job.company_name || 'Unknown';\n    if (seen.has(companyName)) continue;\n    seen.add(companyName);\n\n    const website = job.company_url || job.url || 'Unknown';\n    const tags = job.tags ? (Array.isArray(job.tags) ? job.tags.join(', ') : job.tags) : 'Unknown';\n    const location = job.location || 'Remote';\n\n    companies.push({\n      json: {\n        Company: companyName,\n        Website: website,\n        Careers_URL: job.url || 'Unknown',\n        Country: 'Unknown',\n        City: location,\n        Sector: 'Technology',\n        Subsector: 'Data / ML / Backend',\n        Company_Stage: 'Unknown',\n        Company_Scale: 'Unknown',\n        Employer_Category: 'Remote Board',\n        Remote: 'Yes',\n        Visa_Sponsorship: 'Unknown',\n        EOR: 'Unknown',\n        Hiring_Geography: 'Global',\n        Target_Roles: 'Data Engineer, ML Engineer, Backend Engineer',\n        Tech_Stack: tags,\n        Region_Eligibility: 'Unknown',\n        Portfolio_Theme_Match: 'Unknown',\n        Language_Requirement: 'English',\n        Hiring_Confidence: 'High',\n        Reason_Match: 'Actively hiring remote data/ML/Python roles on RemoteOK',\n        Source: 'RemoteOK API',\n        Cold_Outreach_Candidate: 'Yes',\n        Visa_Sponsor_Register: 'Unknown'\n      }\n    });\n  }\n}\n\nif (companies.length === 0) {\n  return [{ json: { message: 'No companies found in RemoteOK response' } }];\n}\n\nreturn companies;"
+      }
+    },
+    {
+      "id": "9e442a03-3d3b-45c0-bb4f-da0316067f5f",
+      "name": "Execute Command CSV",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [850, 300],
+      "parameters": {
+        "command": "python3 -c \"\nimport csv, sys, os, json\nrows = {{ $json }}\nif not isinstance(rows, list):\n    rows = [rows]\nmaster = os.path.expanduser('~/Projects/employer-discovery/data/master_employers.csv')\nfields = ['Company','Website','Careers_URL','Country','City','Sector','Subsector','Company_Stage','Company_Scale','Employer_Category','Remote','Visa_Sponsorship','EOR','Hiring_Geography','Target_Roles','Tech_Stack','Region_Eligibility','Portfolio_Theme_Match','Language_Requirement','Hiring_Confidence','Reason_Match','Source','Cold_Outreach_Candidate','Visa_Sponsor_Register']\nwrite_header = not os.path.exists(master) or os.path.getsize(master) == 0\nwith open(master, 'a', newline='') as f:\n    w = csv.DictWriter(f, fieldnames=fields)\n    if write_header:\n        w.writeheader()\n    for row in rows:\n        w.writerow({k: row.get(k, 'Unknown') for k in fields})\nprint(f'Appended {len(rows)} rows to master CSV')\n\""
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [[{"node": "HTTP Request RemoteOK", "type": "main", "index": 0}]]
+    },
+    "HTTP Request RemoteOK": {
+      "main": [[{"node": "Code Map RemoteOK", "type": "main", "index": 0}]]
+    },
+    "Code Map RemoteOK": {
+      "main": [[{"node": "Execute Command CSV", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {"executionOrder": "v1"}
+}

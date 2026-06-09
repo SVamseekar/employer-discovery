@@ -1,0 +1,74 @@
+{
+  "name": "06 EU Startup Directories Scraper",
+  "nodes": [
+    {
+      "id": "002881cd-1e9b-40c7-b120-7729ceee44f0",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 300],
+      "parameters": {
+        "rule": {
+          "interval": [{"field": "cronExpression", "expression": "0 6 * * 1"}]
+        }
+      }
+    },
+    {
+      "id": "88c8b21f-76e3-4439-910a-7038f21e5afe",
+      "name": "HTTP Request EU Startups",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [450, 300],
+      "parameters": {
+        "url": "https://www.eu-startups.com/directory/",
+        "method": "GET",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "User-Agent", "value": "employer-discovery-bot/1.0"},
+            {"name": "Accept", "value": "text/html,application/xhtml+xml"}
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "ae5a0ab3-611f-493d-b0a7-5e61d86277e2",
+      "name": "Code Map EU Startups",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 300],
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst companies = [];\nconst seen = new Set();\n\nfor (const item of items) {\n  let html = '';\n  if (typeof item.json === 'string') {\n    html = item.json;\n  } else if (item.json.data) {\n    html = item.json.data;\n  } else {\n    html = JSON.stringify(item.json);\n  }\n\n  // Extract company names from <h3 tags using regex\n  const h3Matches = html.match(/<h3[^>]*>([^<]{2,80})<\\/h3>/gi) || [];\n  \n  // Also try company name JSON-LD or meta patterns\n  const jsonLdMatches = html.match(/\\\"name\\\":\\s*\\\"([^\\\"]{3,80})\\\"/g) || [];\n  \n  for (const match of h3Matches) {\n    // Strip HTML tags and decode entities\n    const name = match\n      .replace(/<[^>]+>/g, '')\n      .replace(/&amp;/g, '&')\n      .replace(/&lt;/g, '<')\n      .replace(/&gt;/g, '>')\n      .replace(/&#[0-9]+;/g, '')\n      .trim();\n    \n    if (!name || name.length < 2 || seen.has(name)) continue;\n    // Filter out nav/UI elements\n    if (/^(Home|About|Contact|Login|Sign|Menu|Search|Filter|Sort|Next|Prev|Load)/i.test(name)) continue;\n    \n    seen.add(name);\n    companies.push({\n      json: {\n        Company: name,\n        Website: 'Unknown',\n        Careers_URL: 'Unknown',\n        Country: 'Europe',\n        City: 'Unknown',\n        Sector: 'Technology',\n        Subsector: 'Startup',\n        Company_Stage: 'Startup',\n        Company_Scale: 'Unknown',\n        Employer_Category: 'EU Startup',\n        Remote: 'Unknown',\n        Visa_Sponsorship: 'Unknown',\n        EOR: 'Unknown',\n        Hiring_Geography: 'EU',\n        Target_Roles: 'Data Engineer, AI/ML Engineer',\n        Tech_Stack: 'Unknown',\n        Region_Eligibility: 'EU',\n        Portfolio_Theme_Match: 'Unknown',\n        Language_Requirement: 'English',\n        Hiring_Confidence: 'Low',\n        Reason_Match: 'EU startup listed in eu-startups.com directory',\n        Source: 'eu-startups.com directory',\n        Cold_Outreach_Candidate: 'Yes',\n        Visa_Sponsor_Register: 'Unknown'\n      }\n    });\n  }\n}\n\nif (companies.length === 0) {\n  return [{ json: { message: 'No companies parsed from EU Startups directory', note: 'Page may require JS rendering' } }];\n}\n\nreturn companies;"
+      }
+    },
+    {
+      "id": "26c91575-bfc4-48b7-a4d9-297e87ba11f8",
+      "name": "Execute Command CSV",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [850, 300],
+      "parameters": {
+        "command": "python3 -c \"\nimport csv, sys, os, json\nrows = {{ $json }}\nif not isinstance(rows, list):\n    rows = [rows]\nmaster = os.path.expanduser('~/Projects/employer-discovery/data/master_employers.csv')\nfields = ['Company','Website','Careers_URL','Country','City','Sector','Subsector','Company_Stage','Company_Scale','Employer_Category','Remote','Visa_Sponsorship','EOR','Hiring_Geography','Target_Roles','Tech_Stack','Region_Eligibility','Portfolio_Theme_Match','Language_Requirement','Hiring_Confidence','Reason_Match','Source','Cold_Outreach_Candidate','Visa_Sponsor_Register']\nwrite_header = not os.path.exists(master) or os.path.getsize(master) == 0\nwith open(master, 'a', newline='') as f:\n    w = csv.DictWriter(f, fieldnames=fields)\n    if write_header:\n        w.writeheader()\n    for row in rows:\n        w.writerow({k: row.get(k, 'Unknown') for k in fields})\nprint(f'Appended {len(rows)} rows to master CSV')\n\""
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [[{"node": "HTTP Request EU Startups", "type": "main", "index": 0}]]
+    },
+    "HTTP Request EU Startups": {
+      "main": [[{"node": "Code Map EU Startups", "type": "main", "index": 0}]]
+    },
+    "Code Map EU Startups": {
+      "main": [[{"node": "Execute Command CSV", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {"executionOrder": "v1"}
+}

@@ -1,0 +1,93 @@
+{
+  "name": "04 GitHub Stack Signal Scraper",
+  "nodes": [
+    {
+      "id": "2292e082-ca95-42ab-ad31-df81bd52e84f",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 300],
+      "parameters": {
+        "rule": {
+          "interval": [{"field": "cronExpression", "expression": "0 4 * * *"}]
+        }
+      }
+    },
+    {
+      "id": "a703eba2-0134-47e1-a5ed-3ce51364245b",
+      "name": "HTTP Request GitHub RAG",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [450, 200],
+      "parameters": {
+        "url": "https://api.github.com/search/repositories?q=rag+retrieval+augmented+generation+language:python+stars:>10&sort=updated&per_page=50",
+        "method": "GET",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "User-Agent", "value": "employer-discovery-bot/1.0"},
+            {"name": "Accept", "value": "application/vnd.github.v3+json"}
+          ]
+        }
+      }
+    },
+    {
+      "id": "a9bcca77-b292-4b94-af14-17e81683a986",
+      "name": "HTTP Request GitHub DBT",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [450, 400],
+      "parameters": {
+        "url": "https://api.github.com/search/repositories?q=dbt+data+build+tool+analytics+language:sql+stars:>10&sort=updated&per_page=50",
+        "method": "GET",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "User-Agent", "value": "employer-discovery-bot/1.0"},
+            {"name": "Accept", "value": "application/vnd.github.v3+json"}
+          ]
+        }
+      }
+    },
+    {
+      "id": "b6ca3a30-9460-42d4-bfe5-c25cb8378c90",
+      "name": "Code Map GitHub",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 300],
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst companies = [];\nconst seen = new Set();\n\nfor (const item of items) {\n  const body = item.json;\n  let repos = [];\n\n  if (body.items && Array.isArray(body.items)) {\n    repos = body.items;\n  } else if (Array.isArray(body)) {\n    repos = body;\n  }\n\n  for (const repo of repos) {\n    const owner = repo.owner;\n    if (!owner || owner.type !== 'Organization') continue;\n\n    const orgName = owner.login;\n    if (seen.has(orgName)) continue;\n    seen.add(orgName);\n\n    const repoUrl = repo.html_url || 'Unknown';\n    const orgUrl = `https://github.com/${orgName}`;\n    const topics = repo.topics ? repo.topics.join(', ') : 'Unknown';\n    const language = repo.language || 'Unknown';\n\n    companies.push({\n      json: {\n        Company: orgName,\n        Website: orgUrl,\n        Careers_URL: 'Unknown',\n        Country: 'Unknown',\n        City: 'Unknown',\n        Sector: 'Technology',\n        Subsector: 'Data / AI',\n        Company_Stage: 'Unknown',\n        Company_Scale: 'Unknown',\n        Employer_Category: 'GitHub Signal',\n        Remote: 'Unknown',\n        Visa_Sponsorship: 'Unknown',\n        EOR: 'Unknown',\n        Hiring_Geography: 'Unknown',\n        Target_Roles: 'Data Engineer, AI/ML Engineer',\n        Tech_Stack: language + (topics !== 'Unknown' ? ', ' + topics : ''),\n        Region_Eligibility: 'Unknown',\n        Portfolio_Theme_Match: 'Yes - RAG/DBT Stack',\n        Language_Requirement: 'English',\n        Hiring_Confidence: 'Low',\n        Reason_Match: `Active GitHub org using RAG/DBT stack (repo: ${repoUrl})`,\n        Source: 'GitHub API Stack Signal',\n        Cold_Outreach_Candidate: 'Yes',\n        Visa_Sponsor_Register: 'Unknown'\n      }\n    });\n  }\n}\n\nif (companies.length === 0) {\n  return [{ json: { message: 'No organizations found', note: 'All repos may be from individual users' } }];\n}\n\nreturn companies;"
+      }
+    },
+    {
+      "id": "a25e323a-30ce-4d86-bab0-b02f4fa16be1",
+      "name": "Execute Command CSV",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [950, 300],
+      "parameters": {
+        "command": "python3 -c \"\nimport csv, sys, os, json\nrows = {{ $json }}\nif not isinstance(rows, list):\n    rows = [rows]\nmaster = os.path.expanduser('~/Projects/employer-discovery/data/master_employers.csv')\nfields = ['Company','Website','Careers_URL','Country','City','Sector','Subsector','Company_Stage','Company_Scale','Employer_Category','Remote','Visa_Sponsorship','EOR','Hiring_Geography','Target_Roles','Tech_Stack','Region_Eligibility','Portfolio_Theme_Match','Language_Requirement','Hiring_Confidence','Reason_Match','Source','Cold_Outreach_Candidate','Visa_Sponsor_Register']\nwrite_header = not os.path.exists(master) or os.path.getsize(master) == 0\nwith open(master, 'a', newline='') as f:\n    w = csv.DictWriter(f, fieldnames=fields)\n    if write_header:\n        w.writeheader()\n    for row in rows:\n        w.writerow({k: row.get(k, 'Unknown') for k in fields})\nprint(f'Appended {len(rows)} rows to master CSV')\n\""
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {"node": "HTTP Request GitHub RAG", "type": "main", "index": 0},
+          {"node": "HTTP Request GitHub DBT", "type": "main", "index": 0}
+        ]
+      ]
+    },
+    "HTTP Request GitHub RAG": {
+      "main": [[{"node": "Code Map GitHub", "type": "main", "index": 0}]]
+    },
+    "HTTP Request GitHub DBT": {
+      "main": [[{"node": "Code Map GitHub", "type": "main", "index": 0}]]
+    },
+    "Code Map GitHub": {
+      "main": [[{"node": "Execute Command CSV", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {"executionOrder": "v1"}
+}

@@ -1,0 +1,60 @@
+{
+  "name": "01 YC Directory Scraper",
+  "nodes": [
+    {
+      "id": "b71b709c-83e6-4ebb-a5e2-a6729568969a",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 300],
+      "parameters": {
+        "rule": {
+          "interval": [{"field": "cronExpression", "expression": "0 2 * * *"}]
+        }
+      }
+    },
+    {
+      "id": "71dbb979-bb7e-4f3e-add0-ddcf9154b950",
+      "name": "HTTP Request YC",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [450, 300],
+      "parameters": {
+        "url": "https://api.ycombinator.com/v0.1/companies?tags=B2B,Enterprise,Data+Science,Machine+Learning,Artificial+Intelligence&limit=100",
+        "method": "GET"
+      }
+    },
+    {
+      "id": "b625b90d-286d-4074-acb1-949657d3fde8",
+      "name": "Code Map YC",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 300],
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst companies = [];\n\nfor (const item of items) {\n  const body = item.json;\n  let companyList = [];\n\n  if (Array.isArray(body)) {\n    companyList = body;\n  } else if (body.companies && Array.isArray(body.companies)) {\n    companyList = body.companies;\n  } else if (body.data && Array.isArray(body.data)) {\n    companyList = body.data;\n  }\n\n  for (const c of companyList) {\n    const name = c.name || c.company_name || 'Unknown';\n    const website = c.website || c.url || 'Unknown';\n    const sector = c.tags && c.tags.length > 0 ? c.tags[0] : 'Unknown';\n    const subsector = c.tags && c.tags.length > 1 ? c.tags[1] : 'Unknown';\n    const city = c.city || 'Unknown';\n    const country = c.country || 'Unknown';\n    const techStack = c.tech_stack || 'Unknown';\n\n    companies.push({\n      json: {\n        Company: name,\n        Website: website,\n        Careers_URL: website !== 'Unknown' ? website + '/careers' : 'Unknown',\n        Country: country,\n        City: city,\n        Sector: sector,\n        Subsector: subsector,\n        Company_Stage: 'Startup',\n        Company_Scale: 'Unknown',\n        Employer_Category: 'YC',\n        Remote: 'Unknown',\n        Visa_Sponsorship: 'Unknown',\n        EOR: 'Unknown',\n        Hiring_Geography: 'Unknown',\n        Target_Roles: 'Data Engineer, AI/ML Engineer',\n        Tech_Stack: techStack,\n        Region_Eligibility: 'Unknown',\n        Portfolio_Theme_Match: 'Unknown',\n        Language_Requirement: 'English',\n        Hiring_Confidence: 'Medium',\n        Reason_Match: 'YC company in AI/ML/Data domain',\n        Source: 'YC Directory API',\n        Cold_Outreach_Candidate: 'Yes',\n        Visa_Sponsor_Register: 'Unknown'\n      }\n    });\n  }\n}\n\nif (companies.length === 0) {\n  return [{ json: { message: 'No companies found', raw: JSON.stringify(items[0]?.json).slice(0, 500) } }];\n}\n\nreturn companies;"
+      }
+    },
+    {
+      "id": "116ed9d2-72ec-49ac-91ff-29a32f30d37d",
+      "name": "Execute Command CSV",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [850, 300],
+      "parameters": {
+        "command": "python3 -c \"\nimport csv, sys, os, json\nrows = {{ $json }}\nif not isinstance(rows, list):\n    rows = [rows]\nmaster = os.path.expanduser('~/Projects/employer-discovery/data/master_employers.csv')\nfields = ['Company','Website','Careers_URL','Country','City','Sector','Subsector','Company_Stage','Company_Scale','Employer_Category','Remote','Visa_Sponsorship','EOR','Hiring_Geography','Target_Roles','Tech_Stack','Region_Eligibility','Portfolio_Theme_Match','Language_Requirement','Hiring_Confidence','Reason_Match','Source','Cold_Outreach_Candidate','Visa_Sponsor_Register']\nwrite_header = not os.path.exists(master) or os.path.getsize(master) == 0\nwith open(master, 'a', newline='') as f:\n    w = csv.DictWriter(f, fieldnames=fields)\n    if write_header:\n        w.writeheader()\n    for row in rows:\n        w.writerow({k: row.get(k, 'Unknown') for k in fields})\nprint(f'Appended {len(rows)} rows to master CSV')\n\""
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [[{"node": "HTTP Request YC", "type": "main", "index": 0}]]
+    },
+    "HTTP Request YC": {
+      "main": [[{"node": "Code Map YC", "type": "main", "index": 0}]]
+    },
+    "Code Map YC": {
+      "main": [[{"node": "Execute Command CSV", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {"executionOrder": "v1"}
+}

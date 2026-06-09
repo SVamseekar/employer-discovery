@@ -1,0 +1,67 @@
+{
+  "name": "02 Wellfound Remote Scraper",
+  "nodes": [
+    {
+      "id": "ef50807f-a039-446f-89fe-90f0d72350d9",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 300],
+      "parameters": {
+        "rule": {
+          "interval": [{"field": "cronExpression", "expression": "0 3 * * *"}]
+        }
+      }
+    },
+    {
+      "id": "bf6db911-340b-429a-ab5d-099ec5623d0f",
+      "name": "HTTP Request Wellfound",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [450, 300],
+      "parameters": {
+        "url": "https://wellfound.com/jobs?remote=true&role=Data+Engineer",
+        "method": "GET",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "5a8648f7-9390-4372-a539-aae3ce6c9ead",
+      "name": "Code Map Wellfound",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 300],
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst companies = [];\nconst seen = new Set();\n\nfor (const item of items) {\n  let html = '';\n  if (typeof item.json === 'string') {\n    html = item.json;\n  } else if (item.json.data) {\n    html = item.json.data;\n  } else {\n    html = JSON.stringify(item.json);\n  }\n\n  // Extract company names from job listings HTML\n  // Look for company name patterns in Wellfound HTML\n  const companyMatches = html.match(/\\\"startup_name\\\":\\\"([^\\\"]+)\\\"/g) || [];\n  const nameMatches = html.match(/\\\"company_name\\\":\\\"([^\\\"]+)\\\"/g) || [];\n  const allMatches = [...companyMatches, ...nameMatches];\n\n  // Also try to extract from title/heading patterns\n  const titleMatches = html.match(/<h2[^>]*>\\s*([^<]{3,60})\\s*<\\/h2>/g) || [];\n  \n  for (const match of allMatches) {\n    const name = match.replace(/.*:\\\"/, '').replace(/\\\".*/, '').trim();\n    if (name && name.length > 1 && !seen.has(name)) {\n      seen.add(name);\n      companies.push({\n        json: {\n          Company: name,\n          Website: 'Unknown',\n          Careers_URL: 'Unknown',\n          Country: 'Unknown',\n          City: 'Unknown',\n          Sector: 'Technology',\n          Subsector: 'Data Engineering',\n          Company_Stage: 'Unknown',\n          Company_Scale: 'Unknown',\n          Employer_Category: 'Remote-first',\n          Remote: 'Yes',\n          Visa_Sponsorship: 'Unknown',\n          EOR: 'Unknown',\n          Hiring_Geography: 'Global',\n          Target_Roles: 'Data Engineer',\n          Tech_Stack: 'Unknown',\n          Region_Eligibility: 'Unknown',\n          Portfolio_Theme_Match: 'Unknown',\n          Language_Requirement: 'English',\n          Hiring_Confidence: 'High',\n          Reason_Match: 'Actively hiring Data Engineers remotely on Wellfound',\n          Source: 'Wellfound Remote',\n          Cold_Outreach_Candidate: 'Yes',\n          Visa_Sponsor_Register: 'Unknown'\n        }\n      });\n    }\n  }\n}\n\nif (companies.length === 0) {\n  return [{ json: { message: 'No companies parsed from Wellfound HTML', note: 'May require JS rendering or auth' } }];\n}\n\nreturn companies;"
+      }
+    },
+    {
+      "id": "3d3670f1-9e4f-43c3-8659-59e1b42103e2",
+      "name": "Execute Command CSV",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [850, 300],
+      "parameters": {
+        "command": "python3 -c \"\nimport csv, sys, os, json\nrows = {{ $json }}\nif not isinstance(rows, list):\n    rows = [rows]\nmaster = os.path.expanduser('~/Projects/employer-discovery/data/master_employers.csv')\nfields = ['Company','Website','Careers_URL','Country','City','Sector','Subsector','Company_Stage','Company_Scale','Employer_Category','Remote','Visa_Sponsorship','EOR','Hiring_Geography','Target_Roles','Tech_Stack','Region_Eligibility','Portfolio_Theme_Match','Language_Requirement','Hiring_Confidence','Reason_Match','Source','Cold_Outreach_Candidate','Visa_Sponsor_Register']\nwrite_header = not os.path.exists(master) or os.path.getsize(master) == 0\nwith open(master, 'a', newline='') as f:\n    w = csv.DictWriter(f, fieldnames=fields)\n    if write_header:\n        w.writeheader()\n    for row in rows:\n        w.writerow({k: row.get(k, 'Unknown') for k in fields})\nprint(f'Appended {len(rows)} rows to master CSV')\n\""
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [[{"node": "HTTP Request Wellfound", "type": "main", "index": 0}]]
+    },
+    "HTTP Request Wellfound": {
+      "main": [[{"node": "Code Map Wellfound", "type": "main", "index": 0}]]
+    },
+    "Code Map Wellfound": {
+      "main": [[{"node": "Execute Command CSV", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {"executionOrder": "v1"}
+}
