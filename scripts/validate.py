@@ -6,7 +6,7 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 from schema import FIELDS, UNKNOWN
 
-MASTER_PATH = "data/master_employers.csv"
+MASTER_PATH = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "data", "master_employers.csv"))
 
 def load_master():
     if not os.path.exists(MASTER_PATH):
@@ -64,6 +64,7 @@ def append_batch(batch_path: str):
         writer.writerows(all_rows)
 
     print(f"Batch {batch_path}: +{added} added, {skipped} skipped (duplicates). Total: {len(all_rows)}")
+    return added
 
 def stats():
     rows = load_master()

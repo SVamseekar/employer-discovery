@@ -1,2 +1,17 @@
-openpyxl==3.1.2
+# Core data
 pandas==2.2.2
+openpyxl==3.1.2
+
+# Scraping
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+markdownify>=0.11.0
+
+# Job board scraping
+# If jobspy fails to install, try: pip install python-jobspy
+jobspy>=0.1.0
+
+# Gmail outreach automation (only needed for send_outreach.py)
+google-auth-oauthlib>=1.0.0
+google-auth-httplib2>=0.2.0
+google-api-python-client>=2.100.0
