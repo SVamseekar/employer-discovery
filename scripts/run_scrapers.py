@@ -2,6 +2,16 @@
 Run all pipeline scrapers directly — no n8n needed for CSV writes.
 Results go straight to data/master_employers.csv.
 Usage: python scripts/run_scrapers.py
+
+ARCHITECTURE (layers, most reliable → least reliable):
+  Layer 0: static_companies.py  — 300+ hardcoded FAANG/MNCs (never blocked)
+  Layer 1: API sources           — YC, RemoteOK, GitHub, Remotive (API, reliable)
+  Layer 2: VC portfolios         — EU/US/India/AU VC portfolio HTML (reliable)
+  Layer 3: JobSpy/Indeed         — city-by-city job board scraping (fragile)
+  Layer 4: Direct portal scrapers — Dice, Built In, Naukri etc. (often blocked)
+
+Failures in layers 3-4 are logged to data/scraper_errors.log and skipped.
+The pipeline never crashes from a single blocked source.
 """
 import csv, os, requests, json, sys, time
 from datetime import datetime, timezone
@@ -10,6 +20,19 @@ sys.path.insert(0, os.path.dirname(__file__))
 from schema import FIELDS, UNKNOWN
 from validate import append_batch
 from pipeline_log import log_run
+from static_companies import load_static_companies
+
+ERROR_LOG = os.path.join(os.path.dirname(__file__), "..", "data", "scraper_errors.log")
+
+def log_scraper_error(source, detail, error):
+    """Append a scraper failure to the error log without crashing the pipeline."""
+    try:
+        os.makedirs(os.path.dirname(ERROR_LOG), exist_ok=True)
+        with open(ERROR_LOG, "a", encoding="utf-8") as f:
+            ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+            f.write(f"[{ts}] SOURCE={source} | DETAIL={detail} | ERROR={str(error)[:200]}\n")
+    except Exception:
+        pass  # never crash the pipeline over log writes
 
 MASTER = os.path.join(os.path.dirname(__file__), "..", "data", "master_employers.csv")
 BATCH_DIR = os.path.join(os.path.dirname(__file__), "..", "batches")
@@ -27,6 +50,32 @@ def row(**kwargs):
     r = {f: UNKNOWN for f in FIELDS}
     r.update(kwargs)
     return r
+
+# --- Layer 0: Static curated company list ---
+def load_static():
+    """
+    Load 300+ hardcoded FAANG/MNCs/regional top employers.
+    This layer NEVER fails — no network calls, no bot detection, no timeouts.
+    Run first so the master CSV always has a solid foundation.
+    """
+    print("Loading static company list (Layer 0)...")
+    try:
+        companies = load_static_companies()
+        # Convert to full schema rows (static_companies.py already returns schema-compatible dicts)
+        rows = []
+        for co in companies:
+            r = {f: UNKNOWN for f in FIELDS}
+            r.update(co)
+            rows.append(r)
+        write_batch(rows, f"pipeline_static_{datetime.now().strftime('%Y%m%d')}")
+        print(f"  Static list: {len(rows)} companies loaded (FAANG + MNCs + regional leaders)")
+        log_run("Static Company List", len(rows))
+        return len(rows)
+    except Exception as e:
+        print(f"  Static list error (this should never happen): {e}")
+        log_scraper_error("static_companies", "load_static_companies()", e)
+        return 0
+
 
 # --- Scraper 1: YC Directory ---
 def scrape_yc():
@@ -323,6 +372,7 @@ def scrape_india():
                 )
                 if jobs is None:
                     print(f"    Timeout: {city}")
+                    log_scraper_error("Indeed India", city, "SIGALRM timeout after 45s")
                     continue
                 for _, j in jobs.iterrows():
                     company = str(j.get("company", "") or "").strip()
@@ -341,13 +391,14 @@ def scrape_india():
                         Target_Roles=str(j.get("title", UNKNOWN) or UNKNOWN),
                         Hiring_Confidence="High",
                         Reason_Match=f"Actively hiring in {city}: {str(j.get('title',''))[:80]}",
-                        Website=str(j.get("company_url", UNKNOWN) or UNKNOWN),
+                        Website=UNKNOWN,
                         Careers_URL=str(j.get("job_url", UNKNOWN) or UNKNOWN),
                         Language_Requirement="English",
                     ))
                 time.sleep(2)
             except Exception as e:
                 print(f"    India {city} error: {e}")
+                log_scraper_error("Indeed India", city, e)
 
         write_batch(rows, f"pipeline_india_{datetime.now().strftime('%Y%m%d')}")
         print(f"  India: {len(rows)} companies across {len(india_cities)} cities")
@@ -453,13 +504,14 @@ def scrape_japan():
                             Target_Roles=str(j.get("title", UNKNOWN) or UNKNOWN),
                             Hiring_Confidence="Medium",
                             Reason_Match=f"Hiring in {city_name}: {str(j.get('title',''))[:80]}",
-                            Website=str(j.get("company_url", UNKNOWN) or UNKNOWN),
+                            Website=UNKNOWN,
                             Careers_URL=str(j.get("job_url", UNKNOWN) or UNKNOWN),
                             Language_Requirement="Japanese (Learning)",
                         ))
                     time.sleep(2)
                 except Exception as e:
                     print(f"    Japan {city_name} error: {e}")
+                    log_scraper_error("Indeed Japan", city_name, e)
 
         write_batch(rows, f"pipeline_japan_{datetime.now().strftime('%Y%m%d')}")
         print(f"  Japan: {len(rows)} companies across {len(japan_cities)} cities")
@@ -473,31 +525,46 @@ def scrape_japan():
 if __name__ == "__main__":
     print(f"\nPipeline run started: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
     total = 0
+
+    # ── Layer 0: Static foundation — always runs first ──────────────────
+    total += load_static()
+
+    # ── Layer 1: API sources (reliable) ─────────────────────────────────
     total += scrape_yc()
     total += scrape_remoteok()
     total += scrape_github()
     total += scrape_remotive()
+    # ── Layer 2: VC portfolios + EU startups (reliable HTML scraping) ────
     total += scrape_eu_startups()
+
+    # ── Layer 3: City-by-city JobSpy/Indeed (fragile — log failures) ─────
     total += scrape_india()
     total += scrape_japan()
-    print(f"\nTotal new employers added this run: {total}")
 
-    # Directory scrapers (scale + geographic coverage)
+    # Layer 2: Directory scrapers (VC portfolios, public lists)
     from scrape_scaling_europe import run as scaling_run
     total += scaling_run()
 
+    # Layer 3: JobSpy city-by-city (accepts partial failures — see scraper_errors.log)
     from scrape_directories import run as dir_run
     total += dir_run()
 
-    # USA + AU/NZ comprehensive coverage
+    # Layer 3: USA + AU/NZ JobSpy coverage
     from scrape_usa_aunz import run as usa_aunz_run
     total += usa_aunz_run()
 
-    # EU portals (80 portals from europe_it_job_portals.xlsx + VC portfolios)
+    # Layer 2: EU portals (80 portals + VC portfolios including India VCs — HTML scraping)
     from scrape_eu_portals import run as eu_portals_run
     total += eu_portals_run()
 
-    print(f"\nGrand total new employers this run: {total}")
+    # Layer 2: Naukri.com — API → sitemap → curated seed (India Data/AI jobs)
+    from scrape_naukri import run as naukri_run
+    total += naukri_run()
+
+    print(f"\n{'='*60}")
+    print(f"Pipeline complete. Total employers processed this run: {total}")
+    print(f"Check data/scraper_errors.log for any blocked sources.")
+    print(f"{'='*60}")
 
     from visa_crossref import run as visa_run
     visa_run()

@@ -24,10 +24,11 @@ PLAN_MIN = 5_000
 PLAN_MAX = 20_000
 
 REGION_TARGETS = {
-    "Europe":       0.25,
-    "USA":          0.25,
-    "Australia/NZ": 0.25,
-    "Remote/Global":0.25,
+    "Europe":       0.20,
+    "USA":          0.20,
+    "Australia/NZ": 0.20,
+    "India":        0.20,
+    "Remote/Global":0.20,
 }
 STAGE_TARGETS = {
     "Startup":         0.30,
@@ -47,14 +48,19 @@ EU = ["germany", "netherlands", "france", "sweden", "ireland", "spain", "portuga
       "switzerland", "europe", " eu", "estonia", "latvia", "lithuania", "greece",
       "hungary", "romania", "bulgaria", "croatia", "slovakia", "slovenia"]
 
+INDIA_TERMS = ["india", "hyderabad", "bangalore", "bengaluru", "mumbai",
+               "pune", "chennai", "delhi", "noida", "gurgaon", "gurugram", "kolkata"]
+
 def classify_region(row):
-    geo = (row.get("Country","") + " " + row.get("Hiring_Geography","")).lower()
+    geo = (row.get("Country","") + " " + row.get("Hiring_Geography","") + " " + row.get("City","")).lower()
     if any(c in geo for c in EU):
         return "Europe"
     if any(c in geo for c in ["usa", "united states", "u.s."]):
         return "USA"
     if any(c in geo for c in ["australia", "new zealand"]):
         return "Australia/NZ"
+    if any(c in geo for c in INDIA_TERMS):
+        return "India"
     return "Remote/Global"
 
 
@@ -140,7 +146,7 @@ def run():
         print(f"\n  ✓  Minimum target reached!")
 
     # ---- 2. Regional breakdown ----
-    section("2 / REGIONAL BREAKDOWN  (plan: 25% each)")
+    section("2 / REGIONAL BREAKDOWN  (plan: 20% each across 5 regions)")
     region_counts = Counter(classify_region(r) for r in rows)
     for region, target in REGION_TARGETS.items():
         count = region_counts.get(region, 0)
@@ -201,7 +207,7 @@ def run():
         counts  = Counter(r["Status"] for r in tracker)
         total_t = len(tracker)
         print(f"\n  Total contacted:  {total_t}")
-        for status in ("Sent","Replied","Failed","Bounced"):
+        for status in ("Sent","FollowedUp","Replied","Failed","Bounced"):
             n = counts.get(status, 0)
             print(f"  {status:<12} {mini_bar(n, max(total_t,1), 15)}  {n}")
         replies = counts.get("Replied",0)

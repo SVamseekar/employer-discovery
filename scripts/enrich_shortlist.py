@@ -41,6 +41,16 @@ def find_open_jobs(company, careers_url):
     return "", careers_url
 
 
+_INDIA_TERMS = {"india", "hyderabad", "bangalore", "bengaluru", "mumbai", "pune",
+                "chennai", "delhi", "noida", "gurgaon", "gurugram", "kolkata"}
+
+
+def _subject(company: str, country: str) -> str:
+    if any(t in country.lower() for t in _INDIA_TERMS):
+        return f"AI/Data Engineer — {company} | Hyderabad-Based, Immediate Joiner"
+    return f"AI/Data Engineer — {company} | EU Blue Card Eligible"
+
+
 def generate_email(company, sector, tech_stack, open_role, match_notes,
                    country="", remote="", language_req=""):
     """Generate a tailored cold email using CV data from candidate_profile.py."""
@@ -61,7 +71,7 @@ def generate_email(company, sector, tech_stack, open_role, match_notes,
 
     lang_block = f"\n{lang_line}\n" if lang_line else ""
 
-    email = f"""Subject: AI/Data Engineer — {company} | EU Blue Card Eligible
+    email = f"""Subject: {_subject(company, country)}
 
 Hi {company} Team,
 

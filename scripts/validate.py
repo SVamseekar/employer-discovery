@@ -8,6 +8,20 @@ from schema import FIELDS, UNKNOWN
 
 MASTER_PATH = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "data", "master_employers.csv"))
 
+# Job board / aggregator domains that are never real company websites
+_JUNK_DOMAINS = {
+    "indeed.com", "au.indeed.com", "in.indeed.com", "nz.indeed.com",
+    "ca.indeed.com", "uk.indeed.com", "de.indeed.com", "fr.indeed.com",
+    "linkedin.com", "au.linkedin.com", "in.linkedin.com", "nz.linkedin.com",
+    "builtin.com", "builtinnyc.com", "builtinsf.com", "builtinla.com",
+    "builtinseattle.com", "builtinchicago.com", "builtinboston.com",
+    "builtinaustin.com", "builtincolorado.com", "builtinatlanta.com",
+    "builtinmia.com", "builtintexas.com", "builtindc.com",
+    "glassdoor.com", "ziprecruiter.com", "monster.com", "seek.com.au",
+    "seek.co.nz", "adzuna.com.au", "adzuna.co.nz", "jora.com",
+    "careerone.com.au", "dice.com", "remoteok.com", "remotive.com",
+}
+
 def load_master():
     if not os.path.exists(MASTER_PATH):
         return []
@@ -15,12 +29,15 @@ def load_master():
         return list(csv.DictReader(f))
 
 def domain_from_website(website: str) -> str:
-    """Extract bare domain for deduplication."""
+    """Extract bare domain for deduplication. Returns empty string for junk/job-board domains."""
     if not website or website == UNKNOWN:
         return ""
     url = website.lower().strip()
     url = url.replace("https://", "").replace("http://", "").replace("www.", "")
-    return url.split("/")[0].strip()
+    domain = url.split("/")[0].strip()
+    if domain in _JUNK_DOMAINS:
+        return ""
+    return domain
 
 def append_batch(batch_path: str):
     """Append a batch CSV to master, deduplicating by Company name (case-insensitive)."""

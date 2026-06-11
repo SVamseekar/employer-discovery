@@ -35,3 +35,7 @@ config/*.json
 # Temp files
 /tmp/
 *.tmp
+*.log
+data/*.json
+data/*.xlsx
+

@@ -627,6 +627,17 @@ def scrape_vc_portfolios():
         ("https://www.creandum.com/portfolio/", "Creandum", "Europe"),
         ("https://lakestar.com/portfolio", "Lakestar", "Europe"),
         ("https://www.seventure.fr/portfolio/", "Seventure Partners", "France"),
+        # India VCs
+        ("https://www.accel.com/companies?country=India", "Accel India", "India"),
+        ("https://www.peakxv.com/portfolio/", "Peak XV Partners (Sequoia India)", "India"),
+        ("https://www.matrixpartners.in/portfolio/", "Matrix Partners India", "India"),
+        ("https://blume.vc/portfolio/", "Blume Ventures", "India"),
+        ("https://nexusvp.com/portfolio/", "Nexus Venture Partners", "India"),
+        ("https://www.lightspeedvp.com/portfolio", "Lightspeed India", "India"),
+        ("https://kalaari.com/portfolio/", "Kalaari Capital", "India"),
+        ("https://stellarisvp.com/portfolio/", "Stellaris Venture Partners", "India"),
+        ("https://info-edge.com/ventures/portfolio", "Info Edge Ventures", "India"),
+        ("https://www.elevation.capital/portfolio", "Elevation Capital", "India"),
     ]
 
     for url, vc_name, region in vc_pages:

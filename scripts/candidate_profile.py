@@ -189,9 +189,17 @@ def get_skill_overlap(tech_stack: str, max_skills: int = 4) -> list:
 def get_visa_line(country: str, geo: str = "", remote: str = "") -> str:
     """Return appropriate visa/relocation line for the email."""
     combined = f"{country} {geo}".lower()
+
+    india_terms = ["india", "hyderabad", "bangalore", "bengaluru", "mumbai", "pune",
+                   "chennai", "delhi", "noida", "gurgaon", "gurugram", "kolkata"]
     eu_countries = ["germany", "netherlands", "ireland", "france", "sweden", "austria",
                     "denmark", "finland", "belgium", "switzerland", "norway", "europe"]
-    if any(c in combined for c in eu_countries):
+
+    if any(c in combined for c in india_terms):
+        return (
+            "I'm currently based in Hyderabad — no relocation or visa overhead on your end."
+        )
+    elif any(c in combined for c in eu_countries):
         return (
             "I'm EU Blue Card eligible and ready to relocate — "
             "no visa sponsorship complexity on your end."

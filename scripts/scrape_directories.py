@@ -235,7 +235,7 @@ def scrape_australia_nz():
                         Target_Roles=str(j.get("title", UNKNOWN) or UNKNOWN),
                         Hiring_Confidence="High",
                         Reason_Match=f"Actively hiring in {location}",
-                        Website=str(j.get("company_url", UNKNOWN) or UNKNOWN),
+                        Website=UNKNOWN,
                         Careers_URL=str(j.get("job_url", UNKNOWN) or UNKNOWN),
                         Language_Requirement="English",
                     ))
@@ -313,7 +313,7 @@ def scrape_usa_tier2():
                         Target_Roles=str(j.get("title", UNKNOWN) or UNKNOWN),
                         Hiring_Confidence="High",
                         Reason_Match=f"Actively hiring in {city}",
-                        Website=str(j.get("company_url", UNKNOWN) or UNKNOWN),
+                        Website=UNKNOWN,
                         Careers_URL=str(j.get("job_url", UNKNOWN) or UNKNOWN),
                         Language_Requirement="English",
                     ))
@@ -454,7 +454,7 @@ def scrape_eu_cities():
                         Target_Roles=str(j.get("title", UNKNOWN) or UNKNOWN),
                         Hiring_Confidence="High",
                         Reason_Match=f"Actively hiring in {city}",
-                        Website=str(j.get("company_url", UNKNOWN) or UNKNOWN),
+                        Website=UNKNOWN,
                         Careers_URL=str(j.get("job_url", UNKNOWN) or UNKNOWN),
                         Language_Requirement="English",
                     ))

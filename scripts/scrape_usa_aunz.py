@@ -130,7 +130,7 @@ def scrape_usa_jobspy():
                     Target_Roles=str(j.get("title", UNKNOWN) or UNKNOWN),
                     Hiring_Confidence="High",
                     Reason_Match=f"Actively hiring in {city}",
-                    Website=str(j.get("company_url", UNKNOWN) or UNKNOWN),
+                    Website=UNKNOWN,
                     Careers_URL=str(j.get("job_url", UNKNOWN) or UNKNOWN),
                     Language_Requirement="English",
                 ))
@@ -288,7 +288,6 @@ def scrape_builtin():
                     Hiring_Confidence="Medium",
                     Reason_Match=f"Listed on Built In {city} tech company database",
                     Language_Requirement="English",
-                    Website=url.replace("/companies", ""),
                 ))
             time.sleep(1)
         except Exception as e:
@@ -915,7 +914,7 @@ def scrape_aunz_jobspy():
                     Target_Roles=str(j.get("title", UNKNOWN) or UNKNOWN),
                     Hiring_Confidence="High",
                     Reason_Match=f"Actively hiring in {location}",
-                    Website=str(j.get("company_url", UNKNOWN) or UNKNOWN),
+                    Website=UNKNOWN,
                     Careers_URL=str(j.get("job_url", UNKNOWN) or UNKNOWN),
                     Language_Requirement="English",
                 ))

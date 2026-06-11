@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Employer Discovery Portal</title>
+    <!-- Premium Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark-theme">
+    <div class="app-container">
+        
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="logo-area">
+                <div class="logo-icon">▲</div>
+                <div class="logo-text">
+                    <h1>Employer Discovery</h1>
+                    <span>Outreach & CRM Portal</span>
+                </div>
+            </div>
+            
+            <nav class="nav-menu">
+                <button class="nav-btn active" data-tab="dashboard" id="btn-tab-dashboard">
+                    <i data-lucide="layout-dashboard"></i>
+                    <span>Dashboard</span>
+                </button>
+                <button class="nav-btn" data-tab="directory" id="btn-tab-directory">
+                    <i data-lucide="database"></i>
+                    <span>Employer Directory</span>
+                </button>
+                <button class="nav-btn" data-tab="outreach" id="btn-tab-outreach">
+                    <i data-lucide="mail"></i>
+                    <span>Outreach Review</span>
+                </button>
+                <button class="nav-btn" data-tab="crm" id="btn-tab-crm">
+                    <i data-lucide="kanban"></i>
+                    <span>Kanban CRM</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="credentials-indicator" id="creds-status">
+                    <div class="indicator-dot red"></div>
+                    <span id="creds-status-text">Checking credentials...</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            
+            <!-- Dashboard Tab -->
+            <section id="tab-dashboard" class="tab-pane active">
+                <header class="tab-header">
+                    <h2>Pipeline Dashboard</h2>
+                    <p>Real-time analytics of your global employer search targets</p>
+                </header>
+
+                <!-- Top Stats Grid -->
+                <div class="stats-grid">
+                    <div class="stat-card glassmorphic">
+                        <div class="stat-icon-wrapper"><i data-lucide="building-2"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-label">Total Employers</span>
+                            <h3 class="stat-value" id="stat-total-companies">0</h3>
+                            <div class="stat-subtext" id="stat-database-progress">vs 5,000 plan minimum</div>
+                        </div>
+                        <div class="progress-ring-container">
+                            <div class="mini-progress-bar"><div class="fill" id="bar-db-progress"></div></div>
+                        </div>
+                    </div>
+                    <div class="stat-card glassmorphic">
+                        <div class="stat-icon-wrapper"><i data-lucide="check-square"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-label">Visa Confirmed</span>
+                            <h3 class="stat-value" id="stat-visa-confirmed">0</h3>
+                            <div class="stat-subtext" id="stat-visa-ratio">0% of database</div>
+                        </div>
+                    </div>
+                    <div class="stat-card glassmorphic">
+                        <div class="stat-icon-wrapper"><i data-lucide="star"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-label">Shortlisted (Score ≥ 20)</span>
+                            <h3 class="stat-value" id="stat-shortlisted">0</h3>
+                            <div class="stat-subtext" id="stat-score-range">Avg Score: 0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card glassmorphic">
+                        <div class="stat-icon-wrapper"><i data-lucide="send"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-label">Outreach Sent</span>
+                            <h3 class="stat-value" id="stat-outreach-sent">0</h3>
+                            <div class="stat-subtext" id="stat-reply-rate">0% reply rate</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Dashboard Content Split -->
+                <div class="dashboard-split">
+                    <!-- Left Column: Metrics Breakdown -->
+                    <div class="split-left">
+                        <div class="card glassmorphic">
+                            <h3>Regional Coverage vs Plan Targets</h3>
+                            <div class="chart-list" id="region-metrics-list">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+
+                        <div class="card glassmorphic">
+                            <h3>Company Stage Distribution</h3>
+                            <div class="chart-list" id="stage-metrics-list">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+
+                        <div class="card glassmorphic">
+                            <h3>Visa & Remote Signals Breakdown</h3>
+                            <div class="visa-signals-grid" id="visa-signals-list">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Control Panel & Next Steps -->
+                    <div class="split-right">
+                        <div class="card glassmorphic action-panel">
+                            <h3>Control Panel</h3>
+                            <p class="panel-desc">Manage background data collection and enrichment tasks</p>
+                            <div class="action-buttons">
+                                <button class="action-btn" id="btn-run-scrapers" onclick="triggerPipeline('run_scrapers')">
+                                    <i data-lucide="refresh-cw"></i>
+                                    <div>
+                                        <strong>Scrape Employers</strong>
+                                        <span>Trigger Phase 1 scrapers</span>
+                                    </div>
+                                </button>
+                                <button class="action-btn" id="btn-run-scoring" onclick="triggerPipeline('score_shortlist')">
+                                    <i data-lucide="award"></i>
+                                    <div>
+                                        <strong>Re-score Master List</strong>
+                                        <span>Pick top 100 scored companies</span>
+                                    </div>
+                                </button>
+                                <button class="action-btn" id="btn-run-enrich" onclick="triggerPipeline('enrich_shortlist')">
+                                    <i data-lucide="sparkles"></i>
+                                    <div>
+                                        <strong>Enrich Shortlist</strong>
+                                        <span>Find jobs & write emails</span>
+                                    </div>
+                                </button>
+                                <button class="action-btn" id="btn-run-visa" onclick="triggerPipeline('visa_crossref')">
+                                    <i data-lucide="clipboard-check"></i>
+                                    <div>
+                                        <strong>Visa Cross-Reference</strong>
+                                        <span>Cross-reference registers</span>
+                                    </div>
+                                </button>
+                            </div>
+                            
+                            <!-- Logs/Status container -->
+                            <div class="running-log-box" id="running-log-box" style="display: none;">
+                                <div class="log-box-header">
+                                    <span class="pulse-indicator"></span>
+                                    <span id="running-script-title">Running scraper...</span>
+                                    <button class="close-log-btn" onclick="toggleLogBox(false)">&times;</button>
+                                </div>
+                                <pre class="log-content" id="running-log-content">Initializing logs...</pre>
+                            </div>
+                        </div>
+
+                        <div class="card glassmorphic next-steps-panel">
+                            <h3>Priority Actions</h3>
+                            <ul class="next-steps-list" id="next-steps-list">
+                                <!-- Populated dynamically -->
+                            </ul>
+                        </div>
+
+                        <div class="card glassmorphic logs-panel">
+                            <h3>Recent Scraper Activity</h3>
+                            <div class="log-entries" id="recent-logs-list">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Directory Tab -->
+            <section id="tab-directory" class="tab-pane">
+                <header class="tab-header">
+                    <h2>Employer Directory</h2>
+                    <p>Search and filter through the master database of collected employers</p>
+                </header>
+
+                <div class="card glassmorphic table-container-card">
+                    <!-- Filters Toolbar -->
+                    <div class="table-toolbar">
+                        <div class="search-input-wrapper">
+                            <i data-lucide="search"></i>
+                            <input type="text" id="directory-search" placeholder="Search company, sector, tech stack..." aria-label="Search employers">
+                        </div>
+                        <div class="filters-group">
+                            <select id="filter-region" aria-label="Filter by region">
+                                <option value="">All Regions</option>
+                                <option value="Europe">Europe</option>
+                                <option value="USA">USA</option>
+                                <option value="Australia/NZ">Australia/NZ</option>
+                                <option value="India">India</option>
+                                <option value="Remote/Global">Remote/Global</option>
+                            </select>
+                            <select id="filter-stage" aria-label="Filter by stage">
+                                <option value="">All Stages</option>
+                                <option value="Startup">Startup</option>
+                                <option value="Scaleup">Scaleup</option>
+                                <option value="Mid-market">Mid-market</option>
+                                <option value="Enterprise">Enterprise</option>
+                                <option value="Hidden Champion">Hidden Champion</option>
+                            </select>
+                            <select id="filter-visa" aria-label="Filter by visa status">
+                                <option value="">All Sponsorships</option>
+                                <option value="confirmed">Confirmed Sponsor</option>
+                                <option value="possible">Blue Card Possible</option>
+                                <option value="remote">Remote Friendly</option>
+                            </select>
+                            <button class="reset-filters-btn" id="btn-reset-filters">Reset</button>
+                        </div>
+                    </div>
+
+                    <!-- Employers Table -->
+                    <div class="table-responsive">
+                        <table class="data-table" id="directory-table">
+                            <thead>
+                                <tr>
+                                    <th data-sort="Company">Company <i data-lucide="chevrons-up-down"></i></th>
+                                    <th data-sort="Sector">Sector <i data-lucide="chevrons-up-down"></i></th>
+                                    <th data-sort="Country">Location <i data-lucide="chevrons-up-down"></i></th>
+                                    <th>Tech Stack</th>
+                                    <th data-sort="Visa_Sponsorship">Visa / Sponsorship <i data-lucide="chevrons-up-down"></i></th>
+                                    <th data-sort="Score">Score <i data-lucide="chevrons-up-down"></i></th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="directory-table-body">
+                                <!-- Loaded dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="table-pagination">
+                        <span class="pagination-info" id="pagination-info">Showing 0-0 of 0 entries</span>
+                        <div class="pagination-buttons">
+                            <button id="btn-pagination-prev" disabled><i data-lucide="chevron-left"></i> Previous</button>
+                            <button id="btn-pagination-next" disabled>Next <i data-lucide="chevron-right"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Outreach Review Tab -->
+            <section id="tab-outreach" class="tab-pane">
+                <header class="tab-header">
+                    <h2>Outreach Review Station</h2>
+                    <p>Personalize, verify, and send cold emails to your top shortlisted companies</p>
+                </header>
+
+                <div class="outreach-workspace">
+                    <!-- Left side: Shortlisted Companies List -->
+                    <div class="outreach-sidebar card glassmorphic">
+                        <div class="sidebar-header">
+                            <h3>Shortlisted Queue</h3>
+                            <span class="badge" id="outreach-queue-count">0</span>
+                        </div>
+                        <div class="outreach-list-container" id="outreach-companies-list">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Right side: Email Composer Panel -->
+                    <div class="outreach-composer card glassmorphic" id="outreach-composer-panel" style="display: none;">
+                        <div class="composer-header">
+                            <div>
+                                <h3 id="composer-company-name">Company Name</h3>
+                                <span class="subtext" id="composer-company-details">Fintech · UK · Score 96</span>
+                            </div>
+                            <div class="composer-actions">
+                                <a href="#" target="_blank" class="external-link-btn" id="composer-careers-link">
+                                    <i data-lucide="briefcase"></i> View Careers URL
+                                </a>
+                            </div>
+                        </div>
+
+                        <div class="composer-form">
+                            <!-- Email Headers -->
+                            <div class="form-row">
+                                <label for="composer-to">To Email:</label>
+                                <input type="email" id="composer-to" placeholder="e.g. careers@company.com">
+                            </div>
+                            <div class="form-row">
+                                <label for="composer-subject">Subject:</label>
+                                <input type="text" id="composer-subject" readonly placeholder="Dynamic Subject">
+                            </div>
+                            <div class="form-row flex-column">
+                                <div class="editor-header">
+                                    <label for="composer-body">Email Draft Body:</label>
+                                    <span class="editor-tip">Make edits directly. Changes are auto-saved.</span>
+                                </div>
+                                <textarea id="composer-body" rows="18" placeholder="Personalized cold email..."></textarea>
+                            </div>
+                        </div>
+
+                        <div class="composer-footer">
+                            <div class="email-status-indicator" id="composer-status-log">
+                                <!-- Status text here -->
+                            </div>
+                            <div class="button-group">
+                                <button class="btn btn-secondary" id="btn-save-draft" onclick="saveActiveDraft()">Save Draft</button>
+                                <button class="btn btn-primary btn-icon" id="btn-send-email" onclick="sendActiveEmail()">
+                                    <i data-lucide="send"></i>
+                                    <span>Send Cold Email</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Placeholder Composer View -->
+                    <div class="outreach-composer-placeholder card glassmorphic" id="outreach-composer-placeholder">
+                        <i data-lucide="mail-question"></i>
+                        <h3>No Company Selected</h3>
+                        <p>Select a company from the shortlisted queue on the left to review, edit, and send outreach emails.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Kanban CRM Tab -->
+            <section id="tab-crm" class="tab-pane">
+                <header class="tab-header">
+                    <h2>Kanban CRM Board</h2>
+                    <p>Track your active applications, schedule follow-ups, and manage interview stages</p>
+                    <button class="add-app-btn-top" onclick="openAddApplicationModal()"><i data-lucide="plus"></i> Add Job Opportunity</button>
+                </header>
+
+                <!-- Kanban Columns Container -->
+                <div class="kanban-board-container">
+                    
+                    <div class="kanban-column" data-stage="Shortlisted">
+                        <div class="column-header">
+                            <h4>Shortlisted</h4>
+                            <span class="count-badge" id="badge-Shortlisted">0</span>
+                        </div>
+                        <div class="kanban-cards" id="column-Shortlisted"></div>
+                    </div>
+
+                    <div class="kanban-column" data-stage="Email Sent">
+                        <div class="column-header">
+                            <h4>Email Sent</h4>
+                            <span class="count-badge" id="badge-Email-Sent">0</span>
+                        </div>
+                        <div class="kanban-cards" id="column-Email-Sent"></div>
+                    </div>
+
+                    <div class="kanban-column" data-stage="Phone Screen">
+                        <div class="column-header">
+                            <h4>Phone Screen</h4>
+                            <span class="count-badge" id="badge-Phone-Screen">0</span>
+                        </div>
+                        <div class="kanban-cards" id="column-Phone-Screen"></div>
+                    </div>
+
+                    <div class="kanban-column" data-stage="Interview">
+                        <div class="column-header">
+                            <h4>Interviews</h4>
+                            <span class="count-badge" id="badge-Interview">0</span>
+                        </div>
+                        <div class="kanban-cards" id="column-Interview"></div>
+                    </div>
+
+                    <div class="kanban-column" data-stage="Technical Test">
+                        <div class="column-header">
+                            <h4>Tech Test</h4>
+                            <span class="count-badge" id="badge-Technical-Test">0</span>
+                        </div>
+                        <div class="kanban-cards" id="column-Technical-Test"></div>
+                    </div>
+
+                    <div class="kanban-column" data-stage="Offer">
+                        <div class="column-header">
+                            <h4>Offers</h4>
+                            <span class="count-badge" id="badge-Offer">0</span>
+                        </div>
+                        <div class="kanban-cards" id="column-Offer"></div>
+                    </div>
+
+                    <div class="kanban-column" data-stage="Rejected">
+                        <div class="column-header">
+                            <h4>Rejected / Closed</h4>
+                            <span class="count-badge" id="badge-Rejected">0</span>
+                        </div>
+                        <div class="kanban-cards" id="column-Rejected"></div>
+                    </div>
+
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modals (Native HTML5 <dialog> elements with popover-like dismiss) -->
+    
+    <!-- Add/Edit Application Modal -->
+    <dialog id="crm-modal" class="glassmorphic-modal">
+        <form method="dialog" class="modal-form" id="crm-form">
+            <div class="modal-header">
+                <h3 id="modal-title">Add Application</h3>
+                <button type="button" class="close-modal-btn" onclick="closeCrmModal()">&times;</button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="input-field">
+                    <label for="crm-company">Company *</label>
+                    <input type="text" id="crm-company" required placeholder="e.g. Stripe">
+                </div>
+                <div class="input-field">
+                    <label for="crm-role">Role Target *</label>
+                    <input type="text" id="crm-role" required placeholder="e.g. Data Engineer">
+                </div>
+                <div class="input-field">
+                    <label for="crm-url">Job Posting URL</label>
+                    <input type="url" id="crm-url" placeholder="https://company.com/jobs/123">
+                </div>
+                <div class="input-field">
+                    <label for="crm-status">Pipeline Stage</label>
+                    <select id="crm-status">
+                        <option value="Shortlisted">Shortlisted</option>
+                        <option value="Applied">Applied</option>
+                        <option value="Email Sent">Email Sent</option>
+                        <option value="Phone Screen">Phone Screen</option>
+                        <option value="Interview">Interview</option>
+                        <option value="Technical Test">Technical Test</option>
+                        <option value="Final Round">Final Round</option>
+                        <option value="Offer">Offer</option>
+                        <option value="Rejected">Rejected</option>
+                        <option value="Withdrawn">Withdrawn</option>
+                        <option value="On Hold">On Hold</option>
+                    </select>
+                </div>
+                <div class="input-field">
+                    <label for="crm-follow-up">Follow-Up Date</label>
+                    <input type="date" id="crm-follow-up">
+                </div>
+                <div class="input-field">
+                    <label for="crm-notes">Activity Notes / Contact Log</label>
+                    <textarea id="crm-notes" rows="4" placeholder="Recruiter name, technical notes, test progress, etc..."></textarea>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeCrmModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Opportunity</button>
+            </div>
+        </form>
+    </dialog>
+
+    <script src="main.js"></script>
+</body>
+</html>

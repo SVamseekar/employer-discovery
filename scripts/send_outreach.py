@@ -152,8 +152,30 @@ def domain_from_url(url: str) -> str:
 
 def guess_to_email(company: str, website: str, careers_url: str) -> str:
     """
-    Best-guess the careers email. Tries careers@ first, then jobs@.
+    Best-guess the careers email. Tries careers@ first.
     Falls back to 'careers@{slug}.com' if no domain is available.
+
+    ⚠  DELIVERABILITY RISK — READ BEFORE RUNNING AT SCALE:
+    Guessed emails (careers@domain.com) have a 30-50% bounce rate on cold lists.
+    A spike in hard bounces will get your Gmail flagged or suspended within days.
+
+    RECOMMENDED: Verify emails before sending via Hunter.io API (free tier: 25/month,
+    paid: $49/month for 500). Add this check before calling gmail_send():
+
+        import requests
+        def verify_email(email: str, api_key: str) -> bool:
+            r = requests.get(
+                "https://api.hunter.io/v2/email-verifier",
+                params={"email": email, "api_key": api_key}
+            )
+            result = r.json().get("data", {}).get("result", "")
+            return result == "deliverable"
+
+    Also consider sending from a custom domain (e.g. marti@martisoura.dev, ~$12/yr)
+    rather than a personal @gmail.com to protect your sender reputation.
+
+    For top-20 India/EU targets: find a named contact (EM or tech recruiter) on
+    LinkedIn and send a 300-character InMail instead of a cold email.
     """
     domain = domain_from_url(website) or domain_from_url(careers_url)
     if domain and "." in domain:
@@ -163,7 +185,14 @@ def guess_to_email(company: str, website: str, careers_url: str) -> str:
     return f"careers@{slug}.com"
 
 
-def build_subject(company: str) -> str:
+INDIA_TERMS = {"india", "hyderabad", "bangalore", "bengaluru", "mumbai", "pune",
+               "chennai", "delhi", "noida", "gurgaon", "gurugram", "kolkata"}
+
+
+def build_subject(company: str, country: str = "") -> str:
+    geo = country.lower()
+    if any(t in geo for t in INDIA_TERMS):
+        return f"AI/Data Engineer — {company} | Hyderabad-Based, Immediate Joiner"
     return f"AI/Data Engineer — {company} | EU Blue Card Eligible"
 
 
@@ -242,7 +271,7 @@ def run(dry_run: bool = False, daily_limit: int = 20, company_filter: str = None
         companies = list(csv.DictReader(f))
 
     tracker       = load_tracker()
-    already_sent  = {r["Company"].lower() for r in tracker if r["Status"] in ("Sent", "Replied", "Bounced")}
+    already_sent  = {r["Company"].lower() for r in tracker if r["Status"] in ("Sent", "Replied", "Bounced", "FollowedUp")}
     sent_today    = sum(1 for r in tracker
                         if r.get("Sent_At", "")[:10] == datetime.now().strftime("%Y-%m-%d"))
 
@@ -291,7 +320,7 @@ def run(dry_run: bool = False, daily_limit: int = 20, company_filter: str = None
         language_req = row.get("Language_Requirement", "")
 
         to_email = guess_to_email(company, website, careers_url)
-        subject  = build_subject(company)
+        subject  = build_subject(company, country)
         body     = build_body(company, sector, tech_stack, match_notes,
                               country, remote, open_role, language_req)
 

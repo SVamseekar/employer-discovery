@@ -262,6 +262,26 @@ python scripts/enrich_shortlist.py   # ~10 min
 
 ---
 
+## Web Portal CRM & Dashboard
+
+Instead of managing the pipeline entirely from the command line, you can launch a local web portal:
+
+```bash
+python web/app.py
+```
+
+Then, open **[http://127.0.0.1:9800](http://127.0.0.1:9800)** in your web browser.
+
+### Key Tab Features:
+1. **Interactive Dashboard:** Tracks database growth, regional breakdown, stage percentages, and visa sponsor signals.
+2. **Background Process Controller:** Trigger scrapers, visa cross-referencing, re-scoring, and shortlist enrichment directly from the UI with real-time log output streaming.
+3. **Employer Explorer:** Search, filter, and sort all 3,022+ companies.
+4. **Outreach Review Station:** Select shortlisted companies, check contact email, personalize/edit email drafts, and trigger Gmail sends safely with a single click (mitigating automated bounce risks).
+5. **CRM Kanban Board:** Move cards through hiring stages, update notes, and see visual alerts for due follow-ups.
+
+---
+
+
 ## Original Plan Targets
 
 From your project specification:
