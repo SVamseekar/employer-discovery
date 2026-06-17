@@ -15,7 +15,21 @@ import csv, os, re
 
 BASE = os.path.join(os.path.dirname(__file__), "..")
 MASTER = os.path.join(BASE, "data", "master_employers.csv")
+SIGNALS = os.path.join(BASE, "data", "job_signals.csv")
 SHORTLIST = os.path.join(BASE, "data", "cold_outreach_shortlist.csv")
+
+
+def load_active_hiring_companies() -> set[str]:
+    """Companies with matching live job signals (+20 boost in shortlist)."""
+    if not os.path.exists(SIGNALS):
+        return set()
+    names = set()
+    with open(SIGNALS, encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            name = (row.get("Company") or "").lower().strip()
+            if name:
+                names.add(name)
+    return names
 
 AI_KEYWORDS = {"ai", "ml", "machine learning", "deep learning", "llm", "nlp", "data",
                "analytics", "platform", "infrastructure", "cloud", "mlops", "databricks",
@@ -167,6 +181,12 @@ def score(row):
     return s, "; ".join(notes)
 
 
+NON_TECH_ROLE_BLOCK = (
+    "admin executive", "crm executive", "administrative assistant",
+    "real estate", "sales executive", "customer support", "receptionist",
+)
+
+
 def run():
     rows = []
     with open(MASTER, encoding="utf-8") as f:
@@ -175,10 +195,17 @@ def run():
         for row in reader:
             rows.append(row)
 
-    # Score all
+    active_hiring = load_active_hiring_companies()
+
     scored = []
     for row in rows:
+        roles = (row.get("Target_Roles") or "").lower()
+        if any(block in roles for block in NON_TECH_ROLE_BLOCK):
+            continue
         s, notes = score(row)
+        if row["Company"].lower().strip() in active_hiring:
+            s += 20
+            notes = (notes + "; Active hiring signal").strip("; ")
         scored.append((s, notes, row))
 
     scored.sort(key=lambda x: x[0], reverse=True)

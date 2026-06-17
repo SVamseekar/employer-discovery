@@ -21,6 +21,7 @@ from schema import FIELDS, UNKNOWN
 from validate import append_batch
 from pipeline_log import log_run
 from static_companies import load_static_companies
+from scraper_utils import github_headers
 
 ERROR_LOG = os.path.join(os.path.dirname(__file__), "..", "data", "scraper_errors.log")
 
@@ -175,10 +176,13 @@ def scrape_github():
         try:
             r = requests.get(
                 "https://api.github.com/search/repositories",
-                params={"q": q, "sort": "updated", "per_page": "50"},
-                headers={"Accept": "application/vnd.github.v3+json", "User-Agent": "employer-discovery-bot"},
-                timeout=15
+                params={"q": q, "sort": "updated", "per_page": "30"},
+                headers=github_headers(),
+                timeout=20
             )
+            if r.status_code == 403:
+                print("  GitHub rate limited — set GITHUB_TOKEN env for 5k req/hr")
+                break
             repos = r.json().get("items", [])
             for repo in repos:
                 owner = repo.get("owner", {})

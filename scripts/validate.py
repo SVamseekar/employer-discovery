@@ -4,102 +4,116 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
-from schema import FIELDS, UNKNOWN
+from record_classifier import classify_record, website_domain
+from schema import FIELDS, JOB_SIGNAL_FIELDS, UNKNOWN, row_to_job_signal
 
-MASTER_PATH = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "data", "master_employers.csv"))
+BASE = os.path.join(os.path.dirname(__file__), "..")
+MASTER_PATH = os.path.normpath(os.path.join(BASE, "data", "master_employers.csv"))
+JOB_SIGNALS_PATH = os.path.normpath(os.path.join(BASE, "data", "job_signals.csv"))
 
-# Job board / aggregator domains that are never real company websites
-_JUNK_DOMAINS = {
-    "indeed.com", "au.indeed.com", "in.indeed.com", "nz.indeed.com",
-    "ca.indeed.com", "uk.indeed.com", "de.indeed.com", "fr.indeed.com",
-    "linkedin.com", "au.linkedin.com", "in.linkedin.com", "nz.linkedin.com",
-    "builtin.com", "builtinnyc.com", "builtinsf.com", "builtinla.com",
-    "builtinseattle.com", "builtinchicago.com", "builtinboston.com",
-    "builtinaustin.com", "builtincolorado.com", "builtinatlanta.com",
-    "builtinmia.com", "builtintexas.com", "builtindc.com",
-    "glassdoor.com", "ziprecruiter.com", "monster.com", "seek.com.au",
-    "seek.co.nz", "adzuna.com.au", "adzuna.co.nz", "jora.com",
-    "careerone.com.au", "dice.com", "remoteok.com", "remotive.com",
-}
 
-def load_master():
-    if not os.path.exists(MASTER_PATH):
+def _load_csv(path: str, fields: list[str]) -> list[dict]:
+    if not os.path.exists(path):
         return []
-    with open(MASTER_PATH, newline="", encoding="utf-8") as f:
+    with open(path, newline="", encoding="utf-8") as f:
         return list(csv.DictReader(f))
 
-def domain_from_website(website: str) -> str:
-    """Extract bare domain for deduplication. Returns empty string for junk/job-board domains."""
-    if not website or website == UNKNOWN:
-        return ""
-    url = website.lower().strip()
-    url = url.replace("https://", "").replace("http://", "").replace("www.", "")
-    domain = url.split("/")[0].strip()
-    if domain in _JUNK_DOMAINS:
-        return ""
-    return domain
+
+def _write_csv(path: str, fields: list[str], rows: list[dict]):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fields)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({k: row.get(k, UNKNOWN) for k in fields})
+
+
+def load_master():
+    return _load_csv(MASTER_PATH, FIELDS)
+
+
+def load_job_signals():
+    return _load_csv(JOB_SIGNALS_PATH, JOB_SIGNAL_FIELDS)
+
 
 def append_batch(batch_path: str):
-    """Append a batch CSV to master, deduplicating by Company name (case-insensitive)."""
-    existing = load_master()
-    existing_names = {r["Company"].lower().strip() for r in existing}
-    existing_domains = {domain_from_website(r["Website"]) for r in existing if domain_from_website(r["Website"])}
+    """Route batch rows to master_employers or job_signals — never drop sources."""
+    companies = load_master()
+    signals = load_job_signals()
+
+    company_names = {r["Company"].lower().strip() for r in companies}
+    company_domains = {website_domain(r.get("Website", "")) for r in companies if website_domain(r.get("Website", ""))}
+    signal_keys = {
+        (r["Company"].lower().strip(), (r.get("Job_URL") or "").lower().strip())
+        for r in signals
+    }
 
     with open(batch_path, newline="", encoding="utf-8") as f:
         batch = list(csv.DictReader(f))
 
-    added = 0
+    added_companies = added_signals = 0
     skipped = 0
-    new_rows = []
 
     for row in batch:
-        name_key = row.get("Company", "").lower().strip()
-        domain_key = domain_from_website(row.get("Website", ""))
-
-        if name_key in existing_names:
-            skipped += 1
-            continue
-        if domain_key and domain_key in existing_domains:
-            skipped += 1
-            continue
-
-        # Ensure all 24 fields present
         for field in FIELDS:
             if field not in row:
                 row[field] = UNKNOWN
 
-        new_rows.append(row)
-        existing_names.add(name_key)
+        kind = classify_record(row)
+        name_key = row.get("Company", "").lower().strip()
+        if not name_key:
+            skipped += 1
+            continue
+
+        if kind == "job_signal":
+            job_url = (row.get("Careers_URL") or "").strip()
+            sig_key = (name_key, job_url.lower())
+            if sig_key in signal_keys:
+                skipped += 1
+                continue
+            signals.append(row_to_job_signal(row))
+            signal_keys.add(sig_key)
+            added_signals += 1
+            continue
+
+        domain_key = website_domain(row.get("Website", ""))
+        if name_key in company_names:
+            skipped += 1
+            continue
+        if domain_key and domain_key in company_domains:
+            skipped += 1
+            continue
+
+        companies.append(row)
+        company_names.add(name_key)
         if domain_key:
-            existing_domains.add(domain_key)
-        added += 1
+            company_domains.add(domain_key)
+        added_companies += 1
 
-    all_rows = existing + new_rows
-    with open(MASTER_PATH, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=FIELDS)
-        writer.writeheader()
-        writer.writerows(all_rows)
+    _write_csv(MASTER_PATH, FIELDS, companies)
+    _write_csv(JOB_SIGNALS_PATH, JOB_SIGNAL_FIELDS, signals)
 
-    print(f"Batch {batch_path}: +{added} added, {skipped} skipped (duplicates). Total: {len(all_rows)}")
-    return added
+    print(
+        f"Batch {batch_path}: +{added_companies} companies, +{added_signals} job signals, "
+        f"{skipped} skipped. Totals: {len(companies)} companies, {len(signals)} signals"
+    )
+    return added_companies + added_signals
+
 
 def stats():
-    rows = load_master()
+    companies = load_master()
+    signals = load_job_signals()
     countries = {}
-    stages = {}
-    for r in rows:
+    for r in companies:
         countries[r["Country"]] = countries.get(r["Country"], 0) + 1
-        stages[r["Company_Stage"]] = stages.get(r["Company_Stage"], 0) + 1
-    print(f"\nTotal employers: {len(rows)}")
-    print("\nBy Country:")
+    print(f"\nCompanies: {len(companies)}")
+    print(f"Job signals: {len(signals)}")
+    print("\nCompanies by country (top 15):")
     for k, v in sorted(countries.items(), key=lambda x: -x[1])[:15]:
         print(f"  {k}: {v}")
-    print("\nBy Stage:")
-    for k, v in sorted(stages.items(), key=lambda x: -x[1]):
-        print(f"  {k}: {v}")
+
 
 def export_cold_outreach(output_path="data/cold_outreach_shortlist.csv"):
-    """Export all companies flagged as Cold_Outreach_Candidate = Yes."""
     rows = load_master()
     shortlist = [r for r in rows if r.get("Cold_Outreach_Candidate", "").strip() == "Yes"]
     with open(output_path, "w", newline="", encoding="utf-8") as f:
@@ -107,6 +121,7 @@ def export_cold_outreach(output_path="data/cold_outreach_shortlist.csv"):
         writer.writeheader()
         writer.writerows(shortlist)
     print(f"Cold outreach shortlist: {len(shortlist)} companies → {output_path}")
+
 
 if __name__ == "__main__":
     stats()
